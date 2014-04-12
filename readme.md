@@ -34,3 +34,5 @@ Nothing is cached for logged in users. If you'd like to see the caching in actio
 
 = 1.0 =
 * Initial release.
+
+Note -- Write to cache only.  projectnami-blob-cache-front-end required to serve cached pages.
