@@ -1,0 +1,396 @@
+<?php
+/*
+ * Plugin Name: Project Nami Blob Cache
+ * Plugin URI: http://projectnami.org
+ * Description: External full page caching for WordPress.
+ * Author: Patrick Bates, Spencer Cameron
+ * Author URI: http://projectnami.org/
+ * Version: 1.0
+ * License: GPL2
+ */
+
+require_once 'blob-cache-handler.php';
+
+class PN_BlobCache {
+	
+	private $page_key = null;
+
+	private $cached_page_copy = null;
+
+	private $initial_timestamp = null;
+
+	private $plugin_page_name = 'pn-blob-cache-settings';
+
+	private $default_cache_expiration = 300;
+
+	public function __construct() {
+
+		/*
+		 * Set an initial timestamp once the plugin loads.
+		 * This will give us a rough estimate of when page loading began.
+		 * We'll reference this later once content is generated and ready
+		 * to be sent to the browser.
+		 */
+		$this->initial_timestamp = microtime( true );
+
+		/*
+		 * Let's get things started, shall we?
+		 */
+		$this->init();
+	}
+
+	/*
+	 * Setup and initialize the plugin components.
+	 */
+	private function init() {
+		
+		/*
+		 * Add our admin menu.
+		 */
+		add_action( 'admin_menu' , array( $this, 'create_settings_menu' ) );
+
+		add_action( 'comment_post', array( $this, 'handle_user_comment' ), 10, 2 );
+
+		$this->create_page_key();
+
+		/*
+		 * There are several scenarios in which caching may not
+		 * be desired. If any of the no-cache criteria are met,
+		 * just return and let WordPress do it's thing.
+		 */
+		if( $this->do_not_cache() )
+			return;
+
+		/*
+		if( $this->is_cached() )
+			$this->serve_from_cache();
+		*/
+
+		ob_start( array( $this, 'handle_output_buffer' ) );
+	}
+
+	private function get_account_key() {
+		return get_option( $this->plugin_page_name . '-account-key' );
+	}
+
+	private function get_cache_expiration() {
+		$cache_expiration = get_option( $this->plugin_page_name . '-cache-expiration' );
+
+		if( absint( $cache_expiration ) > 0 )
+			return $cache_expiration;
+		else
+			return $this->default_cache_expiration;
+	}
+
+	private function get_account_name() {
+		return get_option( $this->plugin_page_name . '-account-name' );
+	}
+
+	private function get_container() {
+		return get_option( $this->plugin_page_name . '-container' );
+	}
+
+	public function create_settings_menu() {
+		add_options_page( 'Project Nami Blob Cache Settings', 'PN Blob Cache', 'manage_options', $this->plugin_page_name, array( $this, 'create_settings_page' ) );
+	}
+
+	public function create_settings_page() {
+		if(  ! empty( $_POST ) )
+			$this->process_form_input();
+
+		$this->generate_settings_form();
+	}
+
+	private function process_form_input() {
+		
+		// Make sure there's no monkey-business going on.
+		check_admin_referer( $this->plugin_page_name );
+
+		$account_name = isset( $_POST[ 'account_name' ] ) ? sanitize_text_field( $_POST[ 'account_name' ] ) : '';
+
+		$cache_expiration = isset( $_POST[ 'cache_expiration' ] ) ? absint( $_POST[ 'cache_expiration' ] ) : $this->default_cache_expiration;
+
+		$account_key = isset( $_POST[ 'account_key' ] ) ? sanitize_text_field( $_POST[ 'account_key' ] ) : '';
+	
+		$container = isset( $_POST[ 'container' ] ) ? sanitize_text_field( $_POST[ 'container' ] ) : '';
+
+		update_option( $this->plugin_page_name . '-account-name', $account_name );
+
+		update_option( $this->plugin_page_name . '-cache-expiration', $cache_expiration );
+
+		update_option( $this->plugin_page_name . '-account-key', $account_key );
+
+		update_option( $this->plugin_page_name . '-container', $container );
+		}
+
+	private function generate_settings_form() { ?>
+		<div>
+
+			<style>
+
+				form h2 {
+					font-size: 22px;
+					text-decoration: underline;
+					margin: 10px 0 40px 0;
+				}
+
+				form .cache-setting {
+					background: #fcfcfc;
+					border: 1px solid #ddd;
+					margin: 20px 0;
+					padding: 10px;
+					width: 300px;
+				}
+
+				form h3 {
+					margin: 0;
+				}
+
+				form p {
+					margin: 3px 0;
+				}
+
+				form input {
+					display: block;
+					margin: 0 0 25px 0;
+				}
+
+				form #cache-secret,
+				form #cache-endpoint {
+					width: 200px;
+				}
+	
+				form #cache-expiration {
+					width: 50px;
+				}
+
+			</style>	
+	
+			<form method="post" action="<?php menu_page_url( $this->plugin_page_name ); ?>" >	
+				<h2>Cache Settings</h2>
+
+				<div class="cache-setting">
+					<h3>Cache Expiration</h3>
+					<p>The amount of time a page should be cached before expiring.</p>
+					<input id="cache-expiration" type="text" name="cache_expiration" value="<?php echo esc_attr( $this->get_cache_expiration() ); ?>" />
+				</div>
+
+				<div class="cache-setting">
+					<h3>Azure Storage Account Name</h3>
+					<p>Name of the Azure Storage Account.</p>
+					<input id="account_name" type="text" name="account_name" value="<?php echo esc_attr( $this->get_account_name() ); ?>" />
+				</div>
+
+				<div class="cache-setting">
+					<h3>Account Key</h3>
+					<p>The primary access key for your storage account.</p>
+					<input id="account_key" type="text" name="account_key" value="<?php echo esc_attr( $this->get_account_key() ); ?>" />
+				</div>
+			
+				<div class="cache-setting">
+					<h3>Container</h3>
+					<p>The container within the storage account in which cache objects will be stored.</p>
+					<input id="container" type="text" name="container" value="<?php echo esc_attr( $this->get_container() ); ?>" />
+				</div>
+
+				<input type="submit" value="Update Settings" />
+				<?php wp_nonce_field( $this->plugin_page_name ); ?>
+			</form>
+		</div><?php
+	}
+
+	/*
+	 * We need to create a key specific to the page
+	 * the user is currently on. That way, we know
+	 * how to look up the cached copy when a subsequent
+	 * attempt is made to load the page.
+	 */
+	private function create_page_key() {
+		$url = parse_url( 'http://' . $_SERVER[ 'HTTP_HOST' ] . $_SERVER[ 'REQUEST_URI' ] );
+
+		$query = empty( $url[ 'query' ] ) ? '' : '?' . $url[ 'query' ];
+
+		$url = $url[ 'host' ] . $url[ 'path' ] . $query;
+
+        if ( wp_is_mobile() ){
+            $url = $url . "|mobile";
+        }
+
+		$this->url = $url;
+
+		$this->page_key = md5( $url );
+	}
+
+	private function do_not_cache() {
+		if( $this->user_logged_in() )
+			return true;
+		if( $this->user_is_commenter() )
+			return true;
+		elseif( $this->should_not_cache() )
+			return true;
+		else
+			return false;
+	}
+
+	private function is_cached() {
+		$pn_remote_cache = new PN_Blob_Cache_Handler( );
+
+		$this->cached_page_copy = $pn_remote_cache->pn_blob_cache_get( $this->page_key, $this->get_account_name(), $this->get_account_key(), $this->get_container() );
+
+		if( ! empty( $this->cached_page_copy ) )
+			return true;
+		else
+			return false;
+	}
+
+	private function user_logged_in() {
+		return preg_match( '/wordpress_logged_in/', implode( ' ', array_keys( $_COOKIE ) ) );
+	}
+
+	private function user_is_commenter() {
+		return preg_match( "/comment_post_key_{$this->page_key}/", implode( ' ', array_keys( $_COOKIE ) ) );
+	}
+
+	private function should_not_cache() {
+		$should_not_cache = false;
+
+		$should_not_cache = preg_match( '/wp-admin/', $_SERVER[ 'REQUEST_URI' ] );
+
+		if( $should_not_cache )
+			return true;
+
+		$should_not_cache = preg_match( '/wp-login.php/', $_SERVER[ 'REQUEST_URI' ] );
+
+        if( $should_not_cache )
+            return true;
+
+        $should_not_cache = preg_match( '/wp-cron.php/', $_SERVER[ 'REQUEST_URI' ] );
+
+		if( $should_not_cache )
+            return true;
+
+		$should_not_cache = preg_match( '/wp-comments-post.php/', $_SERVER[ 'REQUEST_URI' ] );
+
+		if( $should_not_cache )
+			return true;
+
+		$should_not_cache = preg_match( '/xmlrpc.php/', $_SERVER[ 'REQUEST_URI' ] );
+
+		if( $should_not_cache )
+			return true;
+
+		$should_not_cache = preg_match( '/wp-signup.php/', $_SERVER[ 'REQUEST_URI' ] );
+
+		if( $should_not_cache )
+			return true;
+
+		$should_not_cache = preg_match( '/wp-trackback.php/', $_SERVER[ 'REQUEST_URI' ] );
+
+		if( $should_not_cache )
+			return true;
+
+		$should_not_cache = preg_match( '/wp-links-opml.php/', $_SERVER[ 'REQUEST_URI' ] );
+
+		if( $should_not_cache )
+			return true;
+
+		$should_not_cache = preg_match( '/wp-blog-header.php/', $_SERVER[ 'REQUEST_URI' ] );
+
+		if( $should_not_cache )
+			return true;
+
+		return $should_not_cache;
+	}
+
+	public function handle_user_comment( $comment_id, $comment_status ) {
+
+		$comment = get_comment( $comment_id );
+
+		$url = parse_url( get_permalink( $comment->comment_post_ID ) );
+
+		$url = $url[ 'host' ] . $url[ 'path' ];
+
+		$this->page_key = md5( $url );
+
+		setcookie( "comment_post_key_{$this->page_key}",  '1', time() + 1800, '/' );
+
+		if( $comment_status != 1 )
+			return;
+
+		$comment_cookie = new WP_Http_Cookie( "comment_post_key_{$this->page_key}" );
+
+		$comment_cookie->name = "comment_post_key_{$this->page_key}";
+
+		$comment_cookie->value = '1';
+
+		$comment_cookie->domain = '/';
+
+		$comment_cookie->expires = time() + 1800;
+
+		$cookies[] = $comment_cookie;
+
+		$page_content = wp_remote_get( "http://$url", array( 'cookies' => $cookies ) );
+
+		$page_content = $page_content[ 'body' ];
+
+		//wp_die(var_dump($page_content));
+
+		if( ! is_wp_error( $page_content ) ) {
+			$this->cache_page_content( $page_content );
+		}
+	}
+
+	private function serve_from_cache() {
+		$now = microtime( true );
+
+		$duration = round( $now - $this->initial_timestamp, 3 );
+		$page_key = $this->page_key;
+
+		//$request_started = $_SERVER[ 'REQUEST_TIME_FLOAT' ];
+
+		$request_started = 0;
+
+		$total_time = round( $now - $request_started, 3 );
+
+		$overhead = $total_time - $duration;
+
+		if( ! empty( $this->cached_page_copy ) )
+			die( str_replace( '</head>', "<!-- Served by Project Nami Blob Cache in $duration seconds. URL = $this->url It's been $total_time seconds since the request began. Initial processing overhead is $overhead seconds. -->\n</head>", $this->cached_page_copy ) );
+	}
+
+	public function handle_output_buffer( $output_buffer ) {
+
+		// Bail if the output buffer is empty
+		if( sizeof( $output_buffer ) < 1 )
+			return $output_buffer;
+
+		//$elements = array( '<html', '<head', '<body', '</html', '</head', '</body', '<rss', '</rss' );
+
+		//foreach( $elements as $element ) {
+		//	if( substr_count( $output_buffer, $element ) < 1 )
+		//		return $output_buffer;
+		//}
+			
+		$this->cache_page_content( $output_buffer );
+		
+		$duration = round( microtime( true ) - $this->initial_timestamp, 3 );
+        	
+		return str_replace( '</head>', "<!-- Page generated without caching in $duration seconds. -->\n</head>", $output_buffer );
+	}
+
+	private function cache_page_content( $page_content ) {
+		if( empty( $this->cached_page_copy ) ) {
+
+			$pn_remote_cache = new PN_Blob_Cache_Handler( );
+			
+			$host_name = site_url();
+
+			$pn_remote_cache->pn_blob_cache_set( $this->page_key, $page_content, $this->get_cache_expiration(), $this->get_account_name(), $this->get_account_key(), $this->get_container() );
+		}
+	}
+
+}
+
+new PN_BlobCache;
+
+?>
