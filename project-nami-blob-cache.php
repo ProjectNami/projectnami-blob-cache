@@ -212,7 +212,7 @@ class PN_BlobCache {
 
 		$url = $url[ 'host' ] . $url[ 'path' ] . $query;
 
-        if ( wp_is_mobile() ){
+        if ( function_exists( 'wp_is_mobile' ) && wp_is_mobile() ){
             $url = $url . "|mobile";
         }
 
