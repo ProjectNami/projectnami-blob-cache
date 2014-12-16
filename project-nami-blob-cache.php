@@ -206,11 +206,13 @@ class PN_BlobCache {
 	 * attempt is made to load the page.
 	 */
 	private function create_page_key() {
-		$url = parse_url( 'http://' . $_SERVER[ 'HTTP_HOST' ] . $_SERVER[ 'REQUEST_URI' ] );
+		$scheme = empty( $_SERVER['HTTPS'] ) ? 'http://' : 'https://';
+
+		$url = parse_url( $scheme . $_SERVER[ 'HTTP_HOST' ] . $_SERVER[ 'REQUEST_URI' ] );
 
 		$query = empty( $url[ 'query' ] ) ? '' : '?' . $url[ 'query' ];
 
-		$url = $url[ 'host' ] . $url[ 'path' ] . $query;
+		$url = $scheme . $url[ 'host' ] . $url[ 'path' ] . $query;
 
         if ( wp_is_mobile() ){
             $url = $url . "|mobile";
