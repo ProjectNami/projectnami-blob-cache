@@ -206,7 +206,7 @@ class PN_BlobCache {
 	 * attempt is made to load the page.
 	 */
 	private function create_page_key() {
-		$scheme = empty( $_SERVER['HTTPS'] ) ? 'http://' : 'https://';
+		$scheme = empty( $_SERVER['HTTPS'] ) || 'off' == $_SERVER['HTTPS'] ? 'http://' : 'https://';
 
 		$url = parse_url( $scheme . $_SERVER[ 'HTTP_HOST' ] . $_SERVER[ 'REQUEST_URI' ] );
 
