@@ -90,6 +90,10 @@ class PN_BlobCache {
 		return get_option( $this->plugin_page_name . '-container' );
 	}
 
+	private function get_cache_exclusions() {
+		return get_option( $this->plugin_page_name . '-cache-exclusions' );
+	}
+
 	public function create_settings_menu() {
 		add_options_page( 'Project Nami Blob Cache Settings', 'PN Blob Cache', 'manage_options', $this->plugin_page_name, array( $this, 'create_settings_page' ) );
 	}
@@ -114,6 +118,8 @@ class PN_BlobCache {
 	
 		$container = isset( $_POST[ 'container' ] ) ? sanitize_text_field( $_POST[ 'container' ] ) : '';
 
+		$cache_exclusions = isset( $_POST['cache_exclusions'] ) ? sanitize_text_field( $_POST['cache_exclusions'] ) : '';
+
 		update_option( $this->plugin_page_name . '-account-name', $account_name );
 
 		update_option( $this->plugin_page_name . '-cache-expiration', $cache_expiration );
@@ -121,7 +127,9 @@ class PN_BlobCache {
 		update_option( $this->plugin_page_name . '-account-key', $account_key );
 
 		update_option( $this->plugin_page_name . '-container', $container );
-		}
+
+		update_option( $this->plugin_page_name . '-cache-exclusions', $cache_exclusions );
+	}
 
 	private function generate_settings_form() { ?>
 		<div>
@@ -160,6 +168,10 @@ class PN_BlobCache {
 					width: 200px;
 				}
 	
+				form #cache-exclusions {
+					width: 100%;
+				}
+
 				form #cache-expiration {
 					width: 50px;
 				}
@@ -193,6 +205,12 @@ class PN_BlobCache {
 					<input id="container" type="text" name="container" value="<?php echo esc_attr( $this->get_container() ); ?>" />
 				</div>
 
+				<div class="cache-setting">
+					<h3>Cache Exclusions (Optional)</h3>
+					<p>This is a comma separated list of URLs to exclude from the cache.</p>
+					<textarea id="cache-exclusions" name="cache_exclusions"><?php echo esc_textarea( $this->get_cache_exclusions() ); ?></textarea>
+				</div>
+
 				<input type="submit" value="Update Settings" />
 				<?php wp_nonce_field( $this->plugin_page_name ); ?>
 			</form>
@@ -223,12 +241,50 @@ class PN_BlobCache {
 		$this->page_key = md5( $url );
 	}
 
+/*
+* Handler for the optional excluded urls the admin may define in plugin options page.
+* Takes a single string of one or more urls separated by commas and compares them to the current url.
+* If a match is found it returns true. 
+*/
+	private function admin_defined_cache_exclusions() {
+		// Retrieve the value from the cache_exclusions options input on the plugin options page.
+		$uri_str = $this->get_cache_exclusions();
+		
+		// abort function if there is no value to parse
+		if ( empty( $uri_str ) )
+			return; // exit function
+
+		// Get the current page uri for comparison to the list of exclusions.
+		$current_page_uri= $_SERVER[ 'REQUEST_URI' ];
+
+		// If a comma is found, parse string into an array.
+		if ( preg_match( '(,)', $uri_str ) ) {
+			$exclusions = explode( ',', $uri_str );
+
+			if ( is_array( $exclusions ) ) {
+				foreach ( $exclusions as $exclusion ) {
+					$exclusion = trim( $exclusion );
+					
+					if ( preg_match( "/" . $exclusion . "/i", $current_page_uri ) )
+						return true; // do not cache
+				}		
+			}
+		 } elseif ( preg_match( "/" . $uri_str . "/i", $current_page_uri ) ) { 	
+			return true; // do not cache
+		
+		} else {
+			return false; // page does not match a cache_excluded url 
+		}
+	}
+
 	private function do_not_cache() {
 		if( $this->user_logged_in() )
 			return true;
 		if( $this->user_is_commenter() )
 			return true;
 		elseif( $this->should_not_cache() )
+			return true;
+		if( $this->admin_defined_cache_exclusions() )
 			return true;
 		else
 			return false;
