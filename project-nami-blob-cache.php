@@ -207,7 +207,7 @@ class PN_BlobCache {
 
 				<div class="cache-setting">
 					<h3>Cache Exclusions (Optional)</h3>
-					<p>This is a comma separated list of URLs to exclude from the cache.</p>
+					<p>This is a comma separated list of URLs to exclude from the cache. (Query strings will be stripped automatically before comparison and not considered as part of the url.)</p>
 					<textarea id="cache-exclusions" name="cache_exclusions"><?php echo esc_textarea( $this->get_cache_exclusions() ); ?></textarea>
 				</div>
 
@@ -242,39 +242,46 @@ class PN_BlobCache {
 	}
 
 /*
-* Handler for the optional excluded urls the admin may define in plugin options page.
-* Takes a single string of one or more urls separated by commas and compares them to the current url.
-* If a match is found it returns true. 
-*/
+ * Handler for the optionally excluded urls. The admin may define them in the plugin options page.
+ * Takes a single string of one or more urls separated by commas and compares them to the current url.
+ * If a match is found it returns true.
+ * False if no matches are found. 
+ */
+
 	private function admin_defined_cache_exclusions() {
 		// Retrieve the value from the cache_exclusions options input on the plugin options page.
-		$uri_str = $this->get_cache_exclusions();
+		$exclusions_input_str = $this->get_cache_exclusions();
 		
-		// abort function if there is no value to parse
-		if ( empty( $uri_str ) )
-			return; // exit function
+		// Exit function if there is no value.
+		if ( empty( $exclusions_input_str ) )
+			return;
 
-		// Get the current page uri for comparison to the list of exclusions.
-		$current_page_uri= $_SERVER[ 'REQUEST_URI' ];
+		// Get the current page url for comparison to the list of exclusions.
+		$current_url = $_SERVER[ 'SERVER_NAME' ] . $_SERVER[ 'REQUEST_URI' ];
+		$url_arr = parse_url( $current_url );
 
-		// If a comma is found, parse string into an array.
-		if ( preg_match( '(,)', $uri_str ) ) {
-			$exclusions = explode( ',', $uri_str );
+		// Constructs the comparison url omitting the scheme and any query strings.
+		$current_page_url = $url_arr[ 'host' ] . $url_arr[ 'path' ];
 
-			if ( is_array( $exclusions ) ) {
-				foreach ( $exclusions as $exclusion ) {
-					$exclusion = trim( $exclusion );
-					
-					if ( preg_match( "/" . $exclusion . "/i", $current_page_uri ) )
-						return true; // do not cache
-				}		
-			}
-		 } elseif ( preg_match( "/" . $uri_str . "/i", $current_page_uri ) ) { 	
-			return true; // do not cache
-		
-		} else {
-			return false; // page does not match a cache_excluded url 
+		// If no delimiter is in the string, it will output a single element array.
+		$exclusions = explode( ',', $exclusions_input_str );
+
+
+		foreach ( $exclusions as $exclusion ) {
+			$exclusion = trim( $exclusion );
+			$exclusion = parse_url( $exclusion );
+
+			// Constructs the comparison url omitting the scheme and any query strings.
+			$exclusion = $exclusion[ 'host' ] . $exclusion[ 'path' ];
+
+			// Compares the current page url with the current element of the the foreach.
+			// If it matches, it will not cache.
+			if ( trailingslashit( $exclusion ) === trailingslashit( $current_page_url ) )
+				return true; // do not cache
 		}
+
+		// If nothing matches, return false.		
+		return false; // page does not match a cache excluded url
 	}
 
 	private function do_not_cache() {
