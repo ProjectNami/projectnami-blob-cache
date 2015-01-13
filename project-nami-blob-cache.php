@@ -90,6 +90,10 @@ class PN_BlobCache {
 		return get_option( $this->plugin_page_name . '-container' );
 	}
 
+	private function get_cache_exclusions() {
+		return get_option( $this->plugin_page_name . '-cache-exclusions' );
+	}
+
 	public function create_settings_menu() {
 		add_options_page( 'Project Nami Blob Cache Settings', 'PN Blob Cache', 'manage_options', $this->plugin_page_name, array( $this, 'create_settings_page' ) );
 	}
@@ -114,6 +118,8 @@ class PN_BlobCache {
 	
 		$container = isset( $_POST[ 'container' ] ) ? sanitize_text_field( $_POST[ 'container' ] ) : '';
 
+		$cache_exclusions = isset( $_POST['cache_exclusions'] ) ? sanitize_text_field( $_POST['cache_exclusions'] ) : '';
+
 		update_option( $this->plugin_page_name . '-account-name', $account_name );
 
 		update_option( $this->plugin_page_name . '-cache-expiration', $cache_expiration );
@@ -121,7 +127,9 @@ class PN_BlobCache {
 		update_option( $this->plugin_page_name . '-account-key', $account_key );
 
 		update_option( $this->plugin_page_name . '-container', $container );
-		}
+
+		update_option( $this->plugin_page_name . '-cache-exclusions', $cache_exclusions );
+	}
 
 	private function generate_settings_form() { ?>
 		<div>
@@ -160,6 +168,10 @@ class PN_BlobCache {
 					width: 200px;
 				}
 	
+				form #cache-exclusions {
+					width: 100%;
+				}
+
 				form #cache-expiration {
 					width: 50px;
 				}
@@ -193,6 +205,12 @@ class PN_BlobCache {
 					<input id="container" type="text" name="container" value="<?php echo esc_attr( $this->get_container() ); ?>" />
 				</div>
 
+				<div class="cache-setting">
+					<h3>Cache Exclusions (Optional)</h3>
+					<p>This is a comma separated list of URLs to exclude from the cache. (Query strings will be stripped automatically before comparison and not considered as part of the url.)</p>
+					<textarea id="cache-exclusions" name="cache_exclusions"><?php echo esc_textarea( $this->get_cache_exclusions() ); ?></textarea>
+				</div>
+
 				<input type="submit" value="Update Settings" />
 				<?php wp_nonce_field( $this->plugin_page_name ); ?>
 			</form>
@@ -223,12 +241,57 @@ class PN_BlobCache {
 		$this->page_key = md5( $url );
 	}
 
+/*
+ * Handler for the optionally excluded urls. The admin may define them in the plugin options page.
+ * Takes a single string of one or more urls separated by commas and compares them to the current url.
+ * If a match is found it returns true.
+ * False if no matches are found. 
+ */
+
+	private function is_current_url_cache_excluded() {
+		// Retrieve the value from the cache_exclusions options input on the plugin options page.
+		$exclusions_input_str = $this->get_cache_exclusions();
+		
+		// Exit function if there is no value.
+		if ( empty( $exclusions_input_str ) )
+			return false;
+
+		// Get the current page url for comparison to the list of exclusions.
+		$current_url = $_SERVER[ 'SERVER_NAME' ] . $_SERVER[ 'REQUEST_URI' ];
+		$url_arr = parse_url( $current_url );
+
+		// Constructs the comparison url omitting the scheme and any query strings.
+		$current_page_url = $url_arr[ 'host' ] . $url_arr[ 'path' ];
+
+		// If no delimiter is in the string, it will output a single element array.
+		$exclusions = explode( ',', $exclusions_input_str );
+
+
+		foreach ( $exclusions as $exclusion ) {
+			$exclusion = trim( $exclusion );
+			$exclusion = parse_url( $exclusion );
+
+			// Constructs the comparison url omitting the scheme and any query strings.
+			$exclusion = $exclusion[ 'host' ] . $exclusion[ 'path' ];
+
+			// Compares the current page url with the current element of the the foreach.
+			// If it matches, it will return true indicating not to cache.
+			if ( trailingslashit( $exclusion ) === trailingslashit( $current_page_url ) )
+				return true; // do not cache
+		}
+
+		// If nothing matches, return false.		
+		return false; // page does not match a cache excluded url
+	}
+
 	private function do_not_cache() {
 		if( $this->user_logged_in() )
 			return true;
 		if( $this->user_is_commenter() )
 			return true;
 		elseif( $this->should_not_cache() )
+			return true;
+		if( $this->is_current_url_cache_excluded() )
 			return true;
 		else
 			return false;
