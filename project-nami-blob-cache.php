@@ -248,13 +248,13 @@ class PN_BlobCache {
  * False if no matches are found. 
  */
 
-	private function admin_defined_cache_exclusions() {
+	private function is_current_url_cache_excluded() {
 		// Retrieve the value from the cache_exclusions options input on the plugin options page.
 		$exclusions_input_str = $this->get_cache_exclusions();
 		
 		// Exit function if there is no value.
 		if ( empty( $exclusions_input_str ) )
-			return;
+			return false;
 
 		// Get the current page url for comparison to the list of exclusions.
 		$current_url = $_SERVER[ 'SERVER_NAME' ] . $_SERVER[ 'REQUEST_URI' ];
@@ -275,7 +275,7 @@ class PN_BlobCache {
 			$exclusion = $exclusion[ 'host' ] . $exclusion[ 'path' ];
 
 			// Compares the current page url with the current element of the the foreach.
-			// If it matches, it will not cache.
+			// If it matches, it will return true indicating not to cache.
 			if ( trailingslashit( $exclusion ) === trailingslashit( $current_page_url ) )
 				return true; // do not cache
 		}
@@ -291,7 +291,7 @@ class PN_BlobCache {
 			return true;
 		elseif( $this->should_not_cache() )
 			return true;
-		if( $this->admin_defined_cache_exclusions() )
+		if( $this->is_current_url_cache_excluded() )
 			return true;
 		else
 			return false;
