@@ -66,8 +66,12 @@ class PN_BlobCache {
 			$this->serve_from_cache();
 		*/
 
-		ob_start( array( $this, 'handle_output_buffer' ) );
+        add_action('wp_loaded', array( $this, 'begin_buffer' ));		
 	}
+
+    public function begin_buffer(){
+        ob_start( array( $this, 'handle_output_buffer' ) );
+    }
 
 	private function get_account_key() {
 		return get_option( $this->plugin_page_name . '-account-key' );
@@ -446,11 +450,13 @@ class PN_BlobCache {
 	private function cache_page_content( $page_content ) {
 		if( empty( $this->cached_page_copy ) ) {
 
+            $headers = headers_list();
+
 			$pn_remote_cache = new PN_Blob_Cache_Handler( );
 			
 			$host_name = site_url();
 
-			$pn_remote_cache->pn_blob_cache_set( $this->page_key, $page_content, $this->get_cache_expiration(), $this->get_account_name(), $this->get_account_key(), $this->get_container() );
+			$pn_remote_cache->pn_blob_cache_set( $this->page_key, $page_content, $this->get_cache_expiration(), $this->get_account_name(), $this->get_account_key(), $this->get_container(), $headers );
 		}
 	}
 
