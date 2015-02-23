@@ -6,26 +6,85 @@ require_once 'library/WindowsAzure/WindowsAzure.php';
 set_include_path(get_include_path() . PATH_SEPARATOR . $path);
 
 use WindowsAzure\Common\ServicesBuilder;
+use WindowsAzure\Blob\Models\CreateBlobOptions;
 
-class PN_Blob_Cache_Handler {
+class PN_Blob_Cache_Handler 
+{
 
-	private $remote_cache_endpoint = null;
+	private $remote_cache_endpoint = NULL;
+    private $content_type = NULL;
+    private $headers_as_json;
 
-	public function __construct( ) {
+	public function __construct( ) 
+    {
 
 	}
 
-	public function pn_blob_cache_set( $key, $data, $expire, $account_name, $account_key, $container ) {
+    /*
+    * This takes an array of headers and prepares the data as an array of json data objects containing name & value properties
+    * It also looks for the "Content-Type" declared in the header array so we can set that value for the blob
+    *
+    * SETS
+    * $this->content_type
+    * $this->headers_as_json
+    */
+    public function prepare_headers( $headers )
+    {
+        if( isset( $headers ) )
+        {
+            foreach( $headers as $x )
+            {
+                $name_val_pair = explode( ": ", $x );
+
+                $header = (object) array( 'name' => trim( $name_val_pair[0] ), 'value' => trim( $name_val_pair[1] ) );
+
+                if( $header->name == "Content-Type" )
+                {
+                    $content_type_parts = explode( "; ", $header->value );
+
+                    $this->content_type = $content_type_parts[0];
+                }
+                $result[] = $header;
+            }            
+            $this->headers_as_json = json_encode( $result );
+
+            return TRUE;
+        }
+        return FALSE;
+    }
+
+	public function pn_blob_cache_set( $key, $data, $expire, $account_name, $account_key, $container, $headers ) 
+    {
 		$connection_string = 'DefaultEndpointsProtocol=http;AccountName=' . $account_name . ';AccountKey=' . $account_key;
 
 		$blobRestProxy = ServicesBuilder::getInstance()->createBlobService( $connection_string );
 
-		try {
-			//Upload blob
-			$blobRestProxy->createBlockBlob($container, $key, $data);
-			$blobRestProxy->setBlobMetadata($container, $key, array( 'Projectnamicacheduration' => $expire) );
+        $options = new CreateBlobOptions();
+
+        //Set metadata and content-type for blob if header array was provided 
+        if( $this->prepare_headers( $headers ) )
+        {                                   
+            if( isset( $this->content_type ))
+            {
+                $options->setBlobContentType( $this->content_type );
+            }
+            $options->setCacheControl( "max-age=".$expire );
+            $options->setMetadata( array( 'Projectnamicacheduration' => $expire, 'Headers' => $this->headers_as_json ) );
+        }
+        //If we don't have header info, we will only set the cache expiration
+        else
+        {
+            $options->setMetadata( array( 'Projectnamicacheduration' => $expire ) );
+        }
+
+		try 
+        {
+			//Upload blob            
+			$blobRestProxy->createBlockBlob($container, $key, $data, $options);            
 			return true;
-		} catch(ServiceException $e){
+		} 
+        catch(ServiceException $e)
+        {
 			$code = $e->getCode();
 			$error_message = $e->getMessage();
 			echo $code.": ".$error_message."<br />";
@@ -34,7 +93,8 @@ class PN_Blob_Cache_Handler {
 
 	}
 
-	public function pn_blob_cache_get( $key, $account_name, $account_key, $container ) {
+	public function pn_blob_cache_get( $key, $account_name, $account_key, $container ) 
+    {
 		$connection_string = 'DefaultEndpointsProtocol=http;AccountName=' . $account_name . ';AccountKey=' . $account_key;
 
 		$blobRestProxy = ServicesBuilder::getInstance()->createBlobService( $connection_string );
@@ -45,6 +105,7 @@ class PN_Blob_Cache_Handler {
 
 		return $blob_contents;
 	}
+
 }
 
 ?>
