@@ -73,10 +73,6 @@ class PN_BlobCache {
         ob_start( array( $this, 'handle_output_buffer' ) );
     }
 
-	private function get_account_key() {
-		return get_option( $this->plugin_page_name . '-account-key' );
-	}
-
 	private function get_cache_expiration() {
 		$cache_expiration = get_option( $this->plugin_page_name . '-cache-expiration' );
 
@@ -84,14 +80,6 @@ class PN_BlobCache {
 			return $cache_expiration;
 		else
 			return $this->default_cache_expiration;
-	}
-
-	private function get_account_name() {
-		return get_option( $this->plugin_page_name . '-account-name' );
-	}
-
-	private function get_container() {
-		return get_option( $this->plugin_page_name . '-container' );
 	}
 
 	private function get_cache_exclusions() {
@@ -114,23 +102,11 @@ class PN_BlobCache {
 		// Make sure there's no monkey-business going on.
 		check_admin_referer( $this->plugin_page_name );
 
-		$account_name = isset( $_POST[ 'account_name' ] ) ? sanitize_text_field( $_POST[ 'account_name' ] ) : '';
-
 		$cache_expiration = isset( $_POST[ 'cache_expiration' ] ) ? absint( $_POST[ 'cache_expiration' ] ) : $this->default_cache_expiration;
-
-		$account_key = isset( $_POST[ 'account_key' ] ) ? sanitize_text_field( $_POST[ 'account_key' ] ) : '';
-	
-		$container = isset( $_POST[ 'container' ] ) ? sanitize_text_field( $_POST[ 'container' ] ) : '';
 
 		$cache_exclusions = isset( $_POST['cache_exclusions'] ) ? sanitize_text_field( $_POST['cache_exclusions'] ) : '';
 
-		update_option( $this->plugin_page_name . '-account-name', $account_name );
-
 		update_option( $this->plugin_page_name . '-cache-expiration', $cache_expiration );
-
-		update_option( $this->plugin_page_name . '-account-key', $account_key );
-
-		update_option( $this->plugin_page_name . '-container', $container );
 
 		update_option( $this->plugin_page_name . '-cache-exclusions', $cache_exclusions );
 	}
@@ -189,24 +165,6 @@ class PN_BlobCache {
 					<h3>Cache Expiration</h3>
 					<p>The amount of time a page should be cached before expiring.</p>
 					<input id="cache-expiration" type="text" name="cache_expiration" value="<?php echo esc_attr( $this->get_cache_expiration() ); ?>" />
-				</div>
-
-				<div class="cache-setting">
-					<h3>Azure Storage Account Name</h3>
-					<p>Name of the Azure Storage Account.</p>
-					<input id="account_name" type="text" name="account_name" value="<?php echo esc_attr( $this->get_account_name() ); ?>" />
-				</div>
-
-				<div class="cache-setting">
-					<h3>Account Key</h3>
-					<p>The primary access key for your storage account.</p>
-					<input id="account_key" type="text" name="account_key" value="<?php echo esc_attr( $this->get_account_key() ); ?>" />
-				</div>
-			
-				<div class="cache-setting">
-					<h3>Container</h3>
-					<p>The container within the storage account in which cache objects will be stored.</p>
-					<input id="container" type="text" name="container" value="<?php echo esc_attr( $this->get_container() ); ?>" />
 				</div>
 
 				<div class="cache-setting">
@@ -304,7 +262,7 @@ class PN_BlobCache {
 	private function is_cached() {
 		$pn_remote_cache = new PN_Blob_Cache_Handler( );
 
-		$this->cached_page_copy = $pn_remote_cache->pn_blob_cache_get( $this->page_key, $this->get_account_name(), $this->get_account_key(), $this->get_container() );
+		$this->cached_page_copy = $pn_remote_cache->pn_blob_cache_get( $this->page_key );
 
 		if( ! empty( $this->cached_page_copy ) )
 			return true;
@@ -456,7 +414,7 @@ class PN_BlobCache {
 			
 			$host_name = site_url();
 
-			$pn_remote_cache->pn_blob_cache_set( $this->page_key, $page_content, $this->get_cache_expiration(), $this->get_account_name(), $this->get_account_key(), $this->get_container(), $headers );
+			$pn_remote_cache->pn_blob_cache_set( $this->page_key, $page_content, $this->get_cache_expiration(), $headers );
 		}
 	}
 

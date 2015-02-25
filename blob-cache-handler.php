@@ -10,12 +10,21 @@ use WindowsAzure\Blob\Models\CreateBlobOptions;
 
 class PN_Blob_Cache_Handler {
 
-	private $remote_cache_endpoint = NULL;
+	private $account_name;
+    private $account_key;
+    private $container;
+    private $connection_string;
+    private $blob_service;
+    private $remote_cache_endpoint = NULL;
 	private $content_type = NULL;
 	private $headers_as_json;
 
 	public function __construct( ){
-
+        $this->account_name = getenv("ProjectNamiBlobCache.StorageAccount");
+        $this->account_key = getenv("ProjectNamiBlobCache.StorageKey");
+        $this->container = getenv("ProjectNamiBlobCache.StorageContainer");		
+        $this->connection_string = 'DefaultEndpointsProtocol=http;AccountName=' . $this->account_name . ';AccountKey=' . $this->account_key;
+        $this->blob_service = ServicesBuilder::getInstance()->createBlobService( $this->connection_string );
 	}
 
 	/*
@@ -33,7 +42,7 @@ class PN_Blob_Cache_Handler {
 		
 		        $header = (object) array( 'name' => trim( $name_val_pair[0] ), 'value' => trim( $name_val_pair[1] ) );
 		
-		        if( $header->name == "Content-Type" ){
+		        if( strtolower( $header->name ) == "content-type" ){
 		            $content_type_parts = explode( "; ", $header->value );
 		
 		            $this->content_type = $content_type_parts[0];
@@ -47,46 +56,40 @@ class PN_Blob_Cache_Handler {
 		return FALSE;
 	}
 
-	public function pn_blob_cache_set( $key, $data, $expire, $account_name, $account_key, $container, $headers ) {
-		$connection_string = 'DefaultEndpointsProtocol=http;AccountName=' . $account_name . ';AccountKey=' . $account_key;
+	public function pn_blob_cache_set( $key, $data, $expire, $headers ) {
 
-		$blobRestProxy = ServicesBuilder::getInstance()->createBlobService( $connection_string );
-
-	        $options = new CreateBlobOptions();
+	    $options = new CreateBlobOptions();
 	
-	        //Set metadata and content-type for blob if header array was provided 
-	        if( $this->prepare_headers( $headers ) ){                                   
-	            if( isset( $this->content_type )){
-	                $options->setBlobContentType( $this->content_type );
-	            }
-	            $options->setCacheControl( "max-age=".$expire );
-	            $options->setMetadata( array( 'Projectnamicacheduration' => $expire, 'Headers' => $this->headers_as_json ) );
+	    //Set metadata and content-type for blob if header array was provided 
+	    if( $this->prepare_headers( $headers ) ){                                   
+	        if( isset( $this->content_type )){
+	            $options->setBlobContentType( $this->content_type );
 	        }
-	        //If we don't have header info, we will only set the cache expiration
-	        else{
-	            $options->setMetadata( array( 'Projectnamicacheduration' => $expire ) );
-	        }
+	        $options->setCacheControl( "max-age=".$expire );
+	        $options->setMetadata( array( 'Projectnamicacheduration' => $expire, 'Headers' => $this->headers_as_json ) );
+	    }
+	    //If we don't have header info, we will only set the cache expiration
+	    else{
+	        $options->setMetadata( array( 'Projectnamicacheduration' => $expire ) );
+	    }
 	
 		try {
 			//Upload blob            
-			$blobRestProxy->createBlockBlob($container, $key, $data, $options);            
+			$this->blob_service->createBlockBlob($this->container, $key, $data, $options);            
 			return true;
 		} 
-	        catch(ServiceException $e){
-			$code = $e->getCode();
-			$error_message = $e->getMessage();
+	    catch(ServiceException $e){
+			$code = esc_html( $e->getCode() );
+			$error_message = esc_html( $e->getMessage() );
 			echo $code.": ".$error_message."<br />";
 			return false;
 		}
 
 	}
 
-	public function pn_blob_cache_get( $key, $account_name, $account_key, $container ){
-		$connection_string = 'DefaultEndpointsProtocol=http;AccountName=' . $account_name . ';AccountKey=' . $account_key;
+	public function pn_blob_cache_get( $key ){
 
-		$blobRestProxy = ServicesBuilder::getInstance()->createBlobService( $connection_string );
-
-		$blob = $blobRestProxy->getBlob( $container, $key );
+		$blob = $this->blob_service->getBlob( $this->container, $key );
 
 		$blob_contents = stream_get_contents( $blob->getContentStream() );
 
