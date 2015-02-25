@@ -51,6 +51,8 @@ class PN_BlobCache {
 
 		add_action( 'comment_post', array( $this, 'handle_user_comment' ), 10, 2 );
 
+        add_action( 'save_post', array( $this, 'handle_save_post'  ) );
+
 		$this->create_page_key();
 
 		/*
@@ -384,6 +386,18 @@ class PN_BlobCache {
 		if( ! empty( $this->cached_page_copy ) )
 			die( str_replace( '</head>', "<!-- Served by Project Nami Blob Cache in $duration seconds. URL = $this->url It's been $total_time seconds since the request began. Initial processing overhead is $overhead seconds. -->\n</head>", $this->cached_page_copy ) );
 	}
+
+    public function handle_save_post( $post_id ){
+        if( !isset( $post_id ) || wp_is_post_revision( $post_id ) ){
+            return;
+        }        
+
+        $this->page_key = md5( get_permalink( $post_id ) );
+
+        $pn_remote_cache = new PN_Blob_Cache_Handler( );        
+	
+        $pn_remote_cache->pn_blob_cache_del( $this->page_key );
+    }
 
 	public function handle_output_buffer( $output_buffer ) {
 

@@ -79,10 +79,7 @@ class PN_Blob_Cache_Handler {
 			return true;
 		} 
 	    catch(ServiceException $e){
-			$code = esc_html( $e->getCode() );
-			$error_message = esc_html( $e->getMessage() );
-			echo $code.": ".$error_message."<br />";
-			return false;
+            $this->pn_handle_exception( $e );
 		}
 
 	}
@@ -95,6 +92,43 @@ class PN_Blob_Cache_Handler {
 
 		return $blob_contents;
 	}
+
+    public function pn_blob_cache_del( $key ){
+        if ( $this->pn_blob_cache_exists( $key ) ){
+            try{            
+                $this->blob_service->deleteBlob( $this->container, $key );
+                return TRUE;                           
+            }        
+            catch( ServiceException $e ){        
+                $this->pn_handle_exception( $e );               
+            }
+        }
+        return FALSE;
+    }
+
+    public function pn_blob_cache_exists( $key ){
+        try{
+            $blob_list = $this->blob_service->listBlobs( $this->container );
+
+            $blobs = $blob_list->getBlobs();
+
+            foreach($blobs as $blob){                
+                if( $blob->getname() == $key ){
+                    return TRUE;
+                }
+            }            
+        }
+        catch( ServiceException $e ){                    
+            $this->pn_handle_exception( $e );
+        }
+        return FALSE;
+    }
+
+    public function pn_handle_exception( $e ){
+        $code = esc_html( $e->getCode() );
+        $error_message = esc_html( $e->getMessage() );
+        echo $code.": ".$error_message."<br />";
+    }
 
 }
 
