@@ -420,16 +420,19 @@ class PN_BlobCache {
 	}
 
 	private function cache_page_content( $page_content ) {
-		if( empty( $this->cached_page_copy ) ) {
+		if( is_404() ) {
+            $cache_expiration = 60;
+        }else{
+            $cache_expiration = $this->get_cache_expiration();
+        }
 
-            $headers = headers_list();
+        $headers = headers_list();
 
-			$pn_remote_cache = new PN_Blob_Cache_Handler( );
+		$pn_remote_cache = new PN_Blob_Cache_Handler( );
 			
-			$host_name = site_url();
+		$host_name = site_url();
 
-			$pn_remote_cache->pn_blob_cache_set( $this->page_key, $page_content, $this->get_cache_expiration(), $headers );
-		}
+		$pn_remote_cache->pn_blob_cache_set( $this->page_key, $page_content, $cache_expiration, $headers );
 	}
 
 }
