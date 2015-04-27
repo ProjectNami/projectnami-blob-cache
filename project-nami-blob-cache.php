@@ -421,7 +421,11 @@ class PN_BlobCache {
 
 	private function cache_page_content( $page_content ) {
 		if( is_404() ) {
-            $cache_expiration = 60;
+            if ( getenv("ProjectNamiBlobCache.404Duration") ) {
+                $cache_expiration = getenv("ProjectNamiBlobCache.404Duration");
+            } else {
+                $cache_expiration = 300;
+            }
         }else{
             $cache_expiration = $this->get_cache_expiration();
         }
