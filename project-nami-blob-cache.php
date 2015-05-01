@@ -161,11 +161,12 @@ class PN_BlobCache {
 			</style>	
 	
 			<form method="post" action="<?php menu_page_url( $this->plugin_page_name ); ?>" >	
-				<h2>Cache Settings</h2>
+				<img src="https://pnsrc.azurewebsites.net/blobcache/header.png" alt="Project Nami" />
+                <h2>Blob Cache Settings</h2>
 
 				<div class="cache-setting">
 					<h3>Cache Expiration</h3>
-					<p>The amount of time a page should be cached before expiring.</p>
+					<p>The amount of time (in seconds) a page should be cached before expiring.</p>
 					<input id="cache-expiration" type="text" name="cache_expiration" value="<?php echo esc_attr( $this->get_cache_expiration() ); ?>" />
 				</div>
 
