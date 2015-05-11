@@ -1,7 +1,7 @@
 Project Nami Blob Cache - Plugin for WordPress and/or Project Nami which writes output
 to an Azure Storage account for later serving
 
-Copyright 2013 - 2014 by Patrick Bates, Spencer Cameron-Morin
+Copyright 2013 - 2015 by Patrick Bates, Spencer Cameron-Morin
 patrick@projectnami.org
 http://projectnami.org
 
