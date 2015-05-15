@@ -53,7 +53,13 @@ class PN_BlobCache {
 
         add_action( 'save_post', array( $this, 'handle_save_post'  ) );
 
+        add_action( 'admin_bar_menu', array( $this, 'clear_page_cache_admin_bar_node' ), 99 );
+
 		$this->create_page_key();
+
+		// Handle page cache clearing from the admin bar helper button.
+		if( isset( $_GET['clear_page_cache'] ) && 'true' == $_GET['clear_page_cache'] )
+			$this->handle_clear_page_cache();
 
 		/*
 		 * There are several scenarios in which caching may not
@@ -197,7 +203,10 @@ class PN_BlobCache {
 
 		$url = $scheme . $url[ 'host' ] . $url[ 'path' ] . $query;
 
-        if ( wp_is_mobile() ){
+		// Remove the clear_page_cache key if it's present so it doesn't break our page key generation.
+		$url = remove_query_arg( 'clear_page_cache', $url );
+
+        if ( wp_is_mobile() ) {
             $url = $url . "|mobile";
         }
 
@@ -418,6 +427,45 @@ class PN_BlobCache {
 		$duration = round( microtime( true ) - $this->initial_timestamp, 3 );
         	
 		return str_replace( '</head>', "<!-- Page generated without caching in $duration seconds. -->\n</head>", $output_buffer );
+	}
+
+	public function clear_page_cache_admin_bar_node() {
+        global $wp_admin_bar;
+
+        // Bail if we're in the admin.
+        if( is_admin() )
+        	return;
+
+       // Only admins should be able to see the cache clear button.
+        if( ! current_user_can( 'manage_options' ) )
+                return;
+
+        $scheme = empty( $_SERVER['HTTPS'] ) || 'off' == $_SERVER['HTTPS'] ? 'http://' : 'https://';
+
+		$url = $scheme . $_SERVER[ 'HTTP_HOST' ] . $_SERVER[ 'REQUEST_URI' ];
+
+        $args = array(
+                'id' => 'clear-page-cache',
+                'title' => 'Clear Page Cache',
+                'href'	=> add_query_arg( 'clear_page_cache', 'true', $url )
+        );
+
+        $wp_admin_bar->add_node( $args );
+	}
+
+	public function handle_clear_page_cache() {
+		// Bail if we're in the admin.
+		if( is_admin() )
+			return;
+
+		// Bail if the user doesn't have admin level privileges.
+		if( ! current_user_can( 'manage_options' ) )
+			return;
+
+		$pn_remote_cache = new PN_Blob_Cache_Handler( );
+			
+		$pn_remote_cache->pn_blob_cache_del( $this->page_key );
+
 	}
 
 	private function cache_page_content( $page_content ) {
