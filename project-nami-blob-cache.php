@@ -59,7 +59,7 @@ class PN_BlobCache {
 
 		// Handle page cache clearing from the admin bar helper button.
 		if( isset( $_GET['clear_page_cache'] ) && 'true' == $_GET['clear_page_cache'] )
-			$this->handle_clear_page_cache();
+			add_action( 'init', array( $this, 'handle_clear_page_cache' ) );
 
 		/*
 		 * There are several scenarios in which caching may not
