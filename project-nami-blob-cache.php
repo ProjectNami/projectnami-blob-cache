@@ -231,7 +231,8 @@ class PN_BlobCache {
 			return false;
 
 		// Get the current page url for comparison to the list of exclusions.
-		$current_url = $_SERVER[ 'SERVER_NAME' ] . $_SERVER[ 'REQUEST_URI' ];
+		$host = ! empty( $_SERVER['SERVER_NAME'] ) ? $_SERVER['SERVER_NAME'] : $_SERVER['HTTP_HOST'];
+		$current_url = $host . $_SERVER[ 'REQUEST_URI' ];
 		$url_arr = parse_url( $current_url );
 
 		// Constructs the comparison url omitting the scheme and any query strings.
