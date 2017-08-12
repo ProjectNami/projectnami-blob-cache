@@ -205,11 +205,11 @@ class PN_BlobCache {
 
 		// Remove the clear_page_cache key if it's present so it doesn't break our page key generation.
 		$url = remove_query_arg( 'clear_page_cache', $url );
-
+        /*
         if ( wp_is_mobile() ) {
             $url = $url . "|mobile";
         }
-
+        */
 		$this->url = $url;
 
 		$this->page_key = md5( $url );
