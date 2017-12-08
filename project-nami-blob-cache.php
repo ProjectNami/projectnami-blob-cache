@@ -1,11 +1,11 @@
 <?php
 /*
  * Plugin Name: Project Nami Blob Cache
- * Plugin URI: http://projectnami.org
+ * Plugin URI: http://projectnami.org/blob-cache
  * Description: External full page caching for WordPress.
  * Author: Patrick Bates, Spencer Cameron
  * Author URI: http://projectnami.org/
- * Version: 1.0
+ * Version: 3.0
  * License: GPL2
  */
 
@@ -53,7 +53,13 @@ class PN_BlobCache {
 
         add_action( 'save_post', array( $this, 'handle_save_post'  ) );
 
+        add_action( 'admin_bar_menu', array( $this, 'clear_page_cache_admin_bar_node' ), 99 );
+
 		$this->create_page_key();
+
+		// Handle page cache clearing from the admin bar helper button.
+		if( isset( $_GET['clear_page_cache'] ) && 'true' == $_GET['clear_page_cache'] )
+			add_action( 'init', array( $this, 'handle_clear_page_cache' ) );
 
 		/*
 		 * There are several scenarios in which caching may not
@@ -161,11 +167,12 @@ class PN_BlobCache {
 			</style>	
 	
 			<form method="post" action="<?php menu_page_url( $this->plugin_page_name ); ?>" >	
-				<h2>Cache Settings</h2>
+				<img src="https://pnsrc.azurewebsites.net/blobcache/header.png" alt="Project Nami" />
+                <h2>Blob Cache Settings</h2>
 
 				<div class="cache-setting">
 					<h3>Cache Expiration</h3>
-					<p>The amount of time a page should be cached before expiring.</p>
+					<p>The amount of time (in seconds) a page should be cached before expiring.</p>
 					<input id="cache-expiration" type="text" name="cache_expiration" value="<?php echo esc_attr( $this->get_cache_expiration() ); ?>" />
 				</div>
 
@@ -196,10 +203,13 @@ class PN_BlobCache {
 
 		$url = $scheme . $url[ 'host' ] . $url[ 'path' ] . $query;
 
-        if ( wp_is_mobile() ){
+		// Remove the clear_page_cache key if it's present so it doesn't break our page key generation.
+		$url = remove_query_arg( 'clear_page_cache', $url );
+        /*
+        if ( wp_is_mobile() ) {
             $url = $url . "|mobile";
         }
-
+        */
 		$this->url = $url;
 
 		$this->page_key = md5( $url );
@@ -221,7 +231,8 @@ class PN_BlobCache {
 			return false;
 
 		// Get the current page url for comparison to the list of exclusions.
-		$current_url = $_SERVER[ 'SERVER_NAME' ] . $_SERVER[ 'REQUEST_URI' ];
+		$host = ! empty( $_SERVER['SERVER_NAME'] ) ? $_SERVER['SERVER_NAME'] : $_SERVER['HTTP_HOST'];
+		$current_url = $host . $_SERVER[ 'REQUEST_URI' ];
 		$url_arr = parse_url( $current_url );
 
 		// Constructs the comparison url omitting the scheme and any query strings.
@@ -419,6 +430,45 @@ class PN_BlobCache {
 		$duration = round( microtime( true ) - $this->initial_timestamp, 3 );
         	
 		return str_replace( '</head>', "<!-- Page generated without caching in $duration seconds. -->\n</head>", $output_buffer );
+	}
+
+	public function clear_page_cache_admin_bar_node() {
+        global $wp_admin_bar;
+
+        // Bail if we're in the admin.
+        if( is_admin() )
+        	return;
+
+       // Only admins should be able to see the cache clear button.
+        if( ! current_user_can( 'manage_options' ) )
+                return;
+
+        $scheme = empty( $_SERVER['HTTPS'] ) || 'off' == $_SERVER['HTTPS'] ? 'http://' : 'https://';
+
+		$url = $scheme . $_SERVER[ 'HTTP_HOST' ] . $_SERVER[ 'REQUEST_URI' ];
+
+        $args = array(
+                'id' => 'clear-page-cache',
+                'title' => 'Clear Page Cache',
+                'href'	=> add_query_arg( 'clear_page_cache', 'true', $url )
+        );
+
+        $wp_admin_bar->add_node( $args );
+	}
+
+	public function handle_clear_page_cache() {
+		// Bail if we're in the admin.
+		if( is_admin() )
+			return;
+
+		// Bail if the user doesn't have admin level privileges.
+		if( ! current_user_can( 'manage_options' ) )
+			return;
+
+		$pn_remote_cache = new PN_Blob_Cache_Handler( );
+			
+		$pn_remote_cache->pn_blob_cache_del( $this->page_key );
+
 	}
 
 	private function cache_page_content( $page_content ) {

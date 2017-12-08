@@ -4,8 +4,8 @@ Project Nami Blob Cache
   * Contributors: patricknami, spencercameron
   * Tags: cache, caching, speed, optimize, optimization, performance
   * Requires at least: ```3.3```
-  * Tested up to: ```3.8.2```
-  * Stable tag: 1.0
+  * Tested up to: ```4.2.2```
+  * Stable tag: 3.0
   * License: GPLv2 or later
   * License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -34,11 +34,6 @@ Nothing is cached for logged in users. If you'd like to see the caching in actio
 2. Activate the plugin through the Plugins menu in WordPress.
 3. Optional: Set the cache expiration ( in seconds ) via the Settings->Cache menu.
 4. Enjoy a faster WordPress site.
-
-# Changelog
-
-## 1.0
-* Initial release.
 
 **Note:**
 

@@ -7,6 +7,7 @@ set_include_path(get_include_path() . PATH_SEPARATOR . $path);
 
 use WindowsAzure\Common\ServicesBuilder;
 use WindowsAzure\Blob\Models\CreateBlobOptions;
+use WindowsAzure\Blob\Models\ListBlobsOptions;
 
 class PN_Blob_Cache_Handler {
 
@@ -108,7 +109,9 @@ class PN_Blob_Cache_Handler {
 
     public function pn_blob_cache_exists( $key ){
         try{
-            $blob_list = $this->blob_service->listBlobs( $this->container );
+            $blob_list_options = new ListBlobsOptions();
+            $blob_list_options->setPrefix( $key );
+            $blob_list = $this->blob_service->listBlobs( $this->container, $blob_list_options );
 
             $blobs = $blob_list->getBlobs();
 
