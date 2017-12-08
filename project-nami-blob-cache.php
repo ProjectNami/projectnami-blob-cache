@@ -249,6 +249,8 @@ class PN_BlobCache {
 	}
 
 	private function do_not_cache() {
+		if( ! empty( $_POST ) )
+			return true;
 		if( $this->user_logged_in() )
 			return true;
 		if( $this->user_is_commenter() )
