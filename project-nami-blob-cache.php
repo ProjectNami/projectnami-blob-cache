@@ -5,7 +5,7 @@
  * Description: External full page caching for WordPress.
  * Author: Patrick Bates, Spencer Cameron
  * Author URI: http://projectnami.org/
- * Version: 3.0
+ * Version: 3.1
  * License: GPL2
  */
 
