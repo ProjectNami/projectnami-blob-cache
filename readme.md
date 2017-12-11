@@ -4,7 +4,7 @@ Project Nami Blob Cache
   * Contributors: patricknami, spencercameron
   * Tags: cache, caching, speed, optimize, optimization, performance
   * Requires at least: ```3.3```
-  * Tested up to: ```4.2.2```
+  * Tested up to: ```4.9.1```
   * Stable tag: 3.0
   * License: GPLv2 or later
   * License URI: http://www.gnu.org/licenses/gpl-2.0.html
@@ -37,4 +37,4 @@ Nothing is cached for logged in users. If you'd like to see the caching in actio
 
 **Note:**
 
-projectnami-blob-cache only writes to cache.projectnami-blob-cache-front-end is required to serve cached pages.
+projectnami-blob-cache only writes to cache. projectnami-blob-cache-front-end is required to serve cached pages.
