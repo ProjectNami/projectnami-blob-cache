@@ -415,7 +415,7 @@ class PN_BlobCache {
 	public function handle_output_buffer( $output_buffer ) {
 
 		// Bail if the output buffer is empty
-		if( sizeof( $output_buffer ) < 1 )
+		if( empty( $output_buffer ) )
 			return $output_buffer;
 
 		//$elements = array( '<html', '<head', '<body', '</html', '</head', '</body', '<rss', '</rss' );
