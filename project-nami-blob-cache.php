@@ -424,8 +424,9 @@ class PN_BlobCache {
 		//	if( substr_count( $output_buffer, $element ) < 1 )
 		//		return $output_buffer;
 		//}
-			
-		$this->cache_page_content( $output_buffer );
+
+		$filtered_output_buffer = apply_filters('pn_cached_content', $output_buffer, $this->url, $this->page_key);
+		$this->cache_page_content($filtered_output_buffer);
 		
 		$duration = round( microtime( true ) - $this->initial_timestamp, 3 );
         	
